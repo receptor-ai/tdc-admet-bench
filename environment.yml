@@ -1,0 +1,21 @@
+name: tdc-admet-bench
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy=1.24.4
+  - pandas=1.5.3
+  - rdkit=2024.09.1
+  - scikit-learn=1.7.2
+  - scipy=1.10.1
+  - lightgbm=4.6.0
+  - xgboost=3.1.1
+  - catboost=1.2.8
+  - molfeat=0.11.0
+  - datamol=0.12.5
+  - tqdm
+  - setuptools
+  - pip
+  - pip:
+    - optuna>=4.0
+    - PyTDC==0.3.8

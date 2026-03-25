@@ -1,0 +1,9 @@
+data/
+!data/tdc_admet_leaderboard.json
+.cache/
+__pycache__/
+*.egg-info/
+*.pyc
+mlruns/
+optuna_studies/
+.env
