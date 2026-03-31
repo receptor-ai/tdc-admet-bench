@@ -2,12 +2,18 @@
 
 Feature selection and hyperparameter optimization for molecular property prediction on the [TDC ADMET Benchmark](https://tdcommons.ai/benchmark/admet_group/overview/).
 
-## Method
+## Our Approach
+
+Fingerprint-based ML models (LightGBM, XGBoost, CatBoost, RF, SVM) with automated feature selection to find optimal fingerprint/descriptor combinations per ADMET task.
 
 1. **Molecular featurization** — 21 fingerprint types (ECFP, FCFP, MACCS, Avalon, etc.) + RDKit/Mordred descriptors via [molfeat](https://molfeat.datamol.io/)
 2. **Sequential Feature Selection (SFS)** — greedy forward/backward selection with feature groups (each fingerprint type is an atomic unit), 5×5 repeated cross-validation
 3. **Optuna feature selection** — Bayesian optimization over feature group combinations
 4. **Evaluation** — TDC official multi-seed protocol (5 seeds) with leaderboard ranking
+
+## External Baselines
+
+Published scores from the [TDC ADMET Leaderboard](https://tdcommons.ai/benchmark/admet_group/overview/) (41 models across 22 benchmarks) are stored in `data/tdc_admet_leaderboard.json` and used as reference baselines for ranking our models.
 
 ## Installation
 
@@ -32,7 +38,7 @@ python scripts/run_evaluate.py --benchmark all --model lgb --features ecfp,maccs
 ## Project Structure
 
 ```
-tdc_admet_bench/
+tdc_admet_bench/                # Our models and pipeline
 ├── config.py          # Benchmark metadata, metrics, fingerprint defaults
 ├── preprocess.py      # SMILES standardization (datamol)
 ├── features.py        # Fingerprint/descriptor transformers + matrix builder
@@ -44,6 +50,9 @@ scripts/
 ├── run_sfs.py         # Run SFS on a benchmark
 ├── run_optuna.py      # Run Optuna feature selection
 └── run_evaluate.py    # Evaluate on benchmarks
+data/
+├── admet_group/                # TDC benchmark datasets (22 tasks)
+└── tdc_admet_leaderboard.json  # External: published scores from TDC leaderboard
 ```
 
 ## Supported Models
@@ -63,7 +72,3 @@ scripts/
 | cats2D | fixed | 189 |
 | scaffoldkeys | fixed | 42 |
 | skeys | fixed | 42 |
-
-## License
-
-MIT
