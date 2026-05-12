@@ -7,3 +7,8 @@ __pycache__/
 mlruns/
 optuna_studies/
 .env
+
+# Third-party model run artifacts (regenerated; large)
+models/*/wrapper/results/
+models/*/wrapper/*_out.log
+catboost_info/

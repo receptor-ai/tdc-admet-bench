@@ -1,0 +1,26 @@
+name: maplight-gnn-tdc
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.10
+  - numpy<2
+  - pandas<2.2
+  - scikit-learn
+  - rdkit
+  - tqdm
+  - requests
+  - urllib3
+  - seaborn
+  - pytorch
+  - pip
+  - pip:
+    - setuptools<81
+    - catboost==1.2.8
+    - PyTDC==0.3.8
+    - molfeat
+    - dgl
+    - dgllife
+    - python-dotenv
+    - fuzzywuzzy
+    - dataclasses-json

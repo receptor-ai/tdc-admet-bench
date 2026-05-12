@@ -1,0 +1,21 @@
+name: caliciboost-tdc
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy=1.26.4
+  - pandas=2.2.3
+  - rdkit
+  - tqdm
+  - requests
+  - urllib3
+  - openjdk          # padelpy needs Java
+  - pip
+  - pip:
+    - setuptools<81
+    - scikit-learn==1.2.2
+    - xgboost==1.7.3
+    - PyTDC==0.3.8
+    - padelpy
+    - fuzzywuzzy
+    - dataclasses-json
