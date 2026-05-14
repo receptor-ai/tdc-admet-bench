@@ -15,11 +15,20 @@ Same pinned snapshot as MapLight: `tdc-admet-bench/data/admet_group/`, TDC 2026-
 ## Run
 
 ```bash
-conda env create -f wrapper/environment.yml
+# IMPORTANT: PYTHONNOUSERSITE=1 must be set during env build too, otherwise pip
+# treats ~/.local packages as already-satisfying molfeat's transitive deps and
+# silently skips installing them into the env.
+PYTHONNOUSERSITE=1 conda env create -f wrapper/environment.yml
 conda activate maplight-gnn-tdc
 
 PYTHONNOUSERSITE=1 python wrapper/run_all.py
 PYTHONNOUSERSITE=1 python wrapper/run_all.py --endpoint caco2_wang
+```
+
+If you hit `ImportError: ... CXXABI_1.3.15 not found` on matplotlib, the env's libstdc++ is being shadowed by an older system one. Force the env's lib dir first:
+
+```bash
+LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH PYTHONNOUSERSITE=1 python wrapper/run_all.py
 ```
 
 Wall time on a single 16-core CPU: ~3–5 hours for all 22 endpoints (the GIN embedding step adds ~30s per endpoint on top of MapLight's runtime).

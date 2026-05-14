@@ -1,26 +1,26 @@
 name: maplight-gnn-tdc
 channels:
   - conda-forge
-  - pytorch
 dependencies:
   - python=3.10
-  - numpy<2
-  - pandas<2.2
-  - scikit-learn
-  - rdkit
-  - tqdm
-  - requests
-  - urllib3
-  - seaborn
-  - pytorch
+  - numpy=1.26.4
+  - pandas=2.1.4
+  - scikit-learn=1.7.2
+  - rdkit=2026.3.1
+  - tqdm=4.67.3
+  - requests=2.34.0
+  - urllib3=2.7.0
+  - seaborn=0.13.2
   - pip
   - pip:
-    - setuptools<81
+    - setuptools==80.10.2
+    - torch==2.2.1            # dgl 2.1.0 only ships graphbolt for torch<=2.2.1
+    - torchdata==0.7.1        # dgl 2.1.0 imports torchdata.datapipes (removed in 0.8+)
+    - molfeat==0.11.0         # pulls its own transitive deps (filelock, fsspec, datamol, pydantic, etc.) via pip
+    - dgl==2.1.0
+    - dgllife==0.3.2
     - catboost==1.2.8
     - PyTDC==0.3.8
-    - molfeat
-    - dgl
-    - dgllife
-    - python-dotenv
-    - fuzzywuzzy
-    - dataclasses-json
+    - python-dotenv==1.2.2
+    - fuzzywuzzy==0.18.0
+    - dataclasses-json==0.6.7

@@ -27,11 +27,12 @@ from calici_boost import (  # noqa: E402
     xg_parmas,
 )
 
-# Point the upstream module at the vendored PaDEL CSV (it tries CWD by default)
-import calici_boost  # noqa: E402
+# Upstream's calici_boost.py reads 'PaDEL_Descriptors.csv' via a hard-coded
+# relative path. Run with cwd = upstream dir so the read succeeds against the
+# vendored copy.
+import os  # noqa: E402
 
-if hasattr(calici_boost, "PADEL_DESCRIPTORS_PATH"):
-    calici_boost.PADEL_DESCRIPTORS_PATH = str(UPSTREAM_DIR / "PaDEL_Descriptors.csv")
+os.chdir(UPSTREAM_DIR)
 
 SEEDS = [1, 2, 3, 4, 5]
 
