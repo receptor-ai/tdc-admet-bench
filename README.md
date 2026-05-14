@@ -48,19 +48,19 @@ Mol2Vec embeddings come from the proprietary `rai_mol2vec` package. Without it t
 Each wrapper is self-contained: vendored upstream source under `upstream/`, our re-evaluation driver under `wrapper/`, pinned conda env, output CSVs under `wrapper/results/` (gitignored — regenerable).
 
 ```bash
-# MapLight (22 endpoints, ~2–4 h on 16-core CPU)
+# MapLight (22 endpoints)
 cd models/maplight
 conda env create -f wrapper/environment.yml
 conda activate maplight-tdc
 PYTHONNOUSERSITE=1 python wrapper/run_all.py
 
-# MapLight+GNN (22 endpoints, ~3–5 h)
+# MapLight+GNN (22 endpoints)
 cd models/maplight_gnn
 PYTHONNOUSERSITE=1 conda env create -f wrapper/environment.yml
 conda activate maplight-gnn-tdc
 PYTHONNOUSERSITE=1 python wrapper/run_all.py
 
-# CaliciBoost (Caco-2 only, ~15–30 min)
+# CaliciBoost (Caco-2 only)
 cd models/caliciboost
 conda env create -f wrapper/environment.yml
 conda activate caliciboost-tdc
