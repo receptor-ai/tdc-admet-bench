@@ -1,74 +1,110 @@
 # tdc-admet-bench
 
-Feature selection and hyperparameter optimization for molecular property prediction on the [TDC ADMET Benchmark](https://tdcommons.ai/benchmark/admet_group/overview/).
+Code and data archive for *Critical Assessment of ML models for ADMET Prediction in TDC leaderboards* (Koleiev et al., Receptor.AI).
 
-## Our Approach
+The repo holds two tiers:
 
-Fingerprint-based ML models (LightGBM, XGBoost, CatBoost, RF, SVM) with automated feature selection to find optimal fingerprint/descriptor combinations per ADMET task.
+1. **In-house models** — Mol2Vec + RDKit/Mordred + LightGBM with sequential feature selection (SFS) and Optuna HPO. Honest and deliberately-overfit variants from manuscript Section 3.
+2. **Third-party re-evaluation wrappers** — fresh, pinned wrappers around the three TDC leaderboard models that passed all four validation stages in our study: MapLight, MapLight+GNN, CaliciBoost. One wrapper per model, each reproducing the relevant row of Table 3.
 
-1. **Molecular featurization** — 21 fingerprint types (ECFP, FCFP, MACCS, Avalon, etc.) + RDKit/Mordred descriptors via [molfeat](https://molfeat.datamol.io/)
-2. **Sequential Feature Selection (SFS)** — greedy forward/backward selection with feature groups (each fingerprint type is an atomic unit), 5×5 repeated cross-validation
-3. **Optuna feature selection** — Bayesian optimization over feature group combinations
-4. **Evaluation** — TDC official multi-seed protocol (5 seeds) with leaderboard ranking
+## Data
 
-## External Baselines
+The TDC ADMET benchmark snapshot used throughout the paper (downloaded 2026-03-24 via PyTDC 0.3.8) lives at `data/admet_group/` — 22 endpoints × `{train_val.csv, test.csv}`. The same snapshot is archived on Zenodo: **DOI TBD** (replace once deposit is finalized).
 
-Published scores from the [TDC ADMET Leaderboard](https://tdcommons.ai/benchmark/admet_group/overview/) (41 models across 22 benchmarks) are stored in `data/tdc_admet_leaderboard.json` and used as reference baselines for ranking our models.
+External published TDC leaderboard scores used as reference baselines are stored in `data/tdc_admet_leaderboard.json`.
 
-## Installation
+## Scope
+
+| Model | Status in this repo | Reason |
+|---|---|---|
+| In-house Mol2Vec+LightGBM (honest, overfit) | full train + inference (`scripts/`, `tdc_admet_bench/`) | manuscript Section 3 |
+| MapLight (22 endpoints) | full train + inference (`models/maplight/`) | Stage-4 survivor |
+| MapLight+GNN (22 endpoints) | full train + inference (`models/maplight_gnn/`) | Stage-4 survivor |
+| CaliciBoost (Caco-2 only) | full train + inference (`models/caliciboost/`) | Stage-4 survivor |
+| ADMETrix, CFA, SimGCN, ZairaChem, MiniMol, GradientBoost+, XGBoost | not included | eliminated at Stages 1–3; failure modes documented in the manuscript Supporting Information |
+
+## In-house pipeline
+
+Fingerprint-based ML models (LightGBM, XGBoost, CatBoost, RF, SVM) with automated feature selection over 21 fingerprint types (ECFP, FCFP, MACCS, Avalon, …) + RDKit/Mordred descriptors via [molfeat](https://molfeat.datamol.io/).
 
 ```bash
 conda env create -f environment.yml
 conda activate tdc-admet-bench
-```
 
-## Quick Start
-
-```bash
-# Sequential feature selection on a benchmark
+# Sequential forward selection on a benchmark
 python scripts/run_sfs.py --benchmark caco2_wang --model lgb --k-features 10
 
 # Optuna-based feature selection
 python scripts/run_optuna.py --benchmark caco2_wang --model lgb --n-trials 100
 
-# Evaluate a feature combination on all 22 benchmarks
+# Evaluate a fingerprint combination on all 22 benchmarks (multi-seed TDC protocol)
 python scripts/run_evaluate.py --benchmark all --model lgb --features ecfp,maccs,desc2D
 ```
 
-## Project Structure
+Mol2Vec embeddings come from the proprietary `rai_mol2vec` package. Without it the in-house scripts cannot run end-to-end; the SFS/HPO logic is still useful as a reference implementation, and the other fingerprint+descriptor groups work out of the box.
+
+## Third-party wrappers
+
+Each wrapper is self-contained: vendored upstream source under `upstream/`, our re-evaluation driver under `wrapper/`, pinned conda env, output CSVs under `wrapper/results/` (gitignored — regenerable).
+
+```bash
+# MapLight (22 endpoints, ~2–4 h on 16-core CPU)
+cd models/maplight
+conda env create -f wrapper/environment.yml
+conda activate maplight-tdc
+PYTHONNOUSERSITE=1 python wrapper/run_all.py
+
+# MapLight+GNN (22 endpoints, ~3–5 h)
+cd models/maplight_gnn
+PYTHONNOUSERSITE=1 conda env create -f wrapper/environment.yml
+conda activate maplight-gnn-tdc
+PYTHONNOUSERSITE=1 python wrapper/run_all.py
+
+# CaliciBoost (Caco-2 only, ~15–30 min)
+cd models/caliciboost
+conda env create -f wrapper/environment.yml
+conda activate caliciboost-tdc
+PYTHONNOUSERSITE=1 python wrapper/run_caco2.py
+```
+
+`PYTHONNOUSERSITE=1` guards against `~/.local/lib/python3.x/site-packages` shadowing the conda env; drop it if your machine has no user-site packages. Per-model `README.md` files cover provenance, the exact upstream commits, and any minor deviations (e.g. CaliciBoost's `gpu_hist` → `hist` switch for CPU reproducibility).
+
+## TDC split
+
+All re-evaluations use the official scaffold split returned by `tdc.benchmark_group.admet_group`, unmodified. 5 seeds per endpoint per the TDC multi-seed protocol.
+
+## Project structure
 
 ```
-tdc_admet_bench/                # Our models and pipeline
-├── config.py          # Benchmark metadata, metrics, fingerprint defaults
-├── preprocess.py      # SMILES standardization (datamol)
-├── features.py        # Fingerprint/descriptor transformers + matrix builder
-├── models.py          # Model registry (RF, XGB, LightGBM, CatBoost, SVM)
-├── sfs.py             # Sequential Feature Selector (forward/backward/floating)
-├── optuna_select.py   # Optuna-based feature selection
-└── evaluate.py        # Multi-seed TDC evaluation
-scripts/
-├── run_sfs.py         # Run SFS on a benchmark
-├── run_optuna.py      # Run Optuna feature selection
-└── run_evaluate.py    # Evaluate on benchmarks
-data/
-├── admet_group/                # TDC benchmark datasets (22 tasks)
-└── tdc_admet_leaderboard.json  # External: published scores from TDC leaderboard
+tdc-admet-bench/
+├── environment.yml                  # top-level env for in-house pipeline
+├── tdc_admet_bench/                 # in-house pipeline library
+│   ├── config.py                    #   benchmark metadata, metrics, fingerprint defaults
+│   ├── preprocess.py                #   SMILES standardization (datamol)
+│   ├── features.py                  #   fingerprint/descriptor transformers
+│   ├── models.py                    #   model registry (RF, XGB, LightGBM, CatBoost, SVM)
+│   ├── sfs.py                       #   sequential feature selector
+│   ├── optuna_select.py             #   Optuna-based feature selection
+│   └── evaluate.py                  #   multi-seed TDC evaluation
+├── scripts/                         # in-house CLIs
+│   ├── run_sfs.py
+│   ├── run_optuna.py
+│   └── run_evaluate.py
+├── models/                          # third-party re-evaluation wrappers
+│   ├── maplight/
+│   ├── maplight_gnn/
+│   └── caliciboost/
+└── data/
+    ├── admet_group/                 # TDC snapshot (22 endpoints, 2026-03-24)
+    └── tdc_admet_leaderboard.json   # published TDC leaderboard scores
 ```
 
-## Supported Models
+## Supported in-house models and fingerprints
 
-`rf` (Random Forest), `lgb` (LightGBM), `xgb` (XGBoost), `cat` (CatBoost), `svm` (SVM), `ridge`, `hist` (HistGradientBoosting)
+`rf`, `lgb`, `xgb`, `cat`, `svm`, `ridge`, `hist`.
 
-## Supported Fingerprints (21 types)
+21 fingerprint types via molfeat: `ecfp`, `fcfp`, `avalon`, `rdkit`, `topological`, `atompair`, `pattern`, `layered`, `secfp` (+ `-count` variants for the first five), `maccs`, `erg`, `estate`, `desc2D`, `cats2D`, `scaffoldkeys`, `skeys`.
 
-| Type | Configurable | Size |
-|------|-------------|------|
-| ecfp, fcfp, avalon, rdkit, topological, atompair, pattern, layered, secfp | length | default 1024 |
-| ecfp-count, fcfp-count, rdkit-count, topological-count, atompair-count | length | default 1024 |
-| maccs | fixed | 167 |
-| erg | fixed | 315 |
-| estate | fixed | 79 |
-| desc2D | fixed | 223 |
-| cats2D | fixed | 189 |
-| scaffoldkeys | fixed | 42 |
-| skeys | fixed | 42 |
+## Third-party licensing
+
+Each `models/*/upstream/` directory carries the upstream model's own MIT license file and a `PROVENANCE.md` pinning the source commit. The wrapper code under `models/*/wrapper/` is original to this repository.
