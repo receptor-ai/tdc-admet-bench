@@ -1,110 +1,160 @@
 # tdc-admet-bench
 
-Code and data archive for *Critical Assessment of ML models for ADMET Prediction in TDC leaderboards* (Koleiev et al., Receptor.AI).
+Code and data for **"Critical Assessment of ML Models for ADMET Prediction in TDC Leaderboards"** (Koleiev et al., Receptor.AI, 2026).
 
-The repo holds two tiers:
+> Paper: <https://www.biorxiv.org/content/10.64898/2026.02.26.708193v1.full>
+> Data archive (Zenodo): <https://doi.org/10.5281/zenodo.20180944>
 
-1. **In-house models** — Mol2Vec + RDKit/Mordred + LightGBM with sequential feature selection (SFS) and Optuna HPO. Honest and deliberately-overfit variants from manuscript Section 3.
-2. **Third-party re-evaluation wrappers** — fresh, pinned wrappers around the three TDC leaderboard models that passed all four validation stages in our study: MapLight, MapLight+GNN, CaliciBoost. One wrapper per model, each reproducing the relevant row of Table 3.
+## TL;DR
 
-## Data
+The [TDC ADMET leaderboard](https://tdcommons.ai/benchmark/admet_group/overview/) is a public benchmark for predicting drug-like properties (absorption, distribution, metabolism, excretion, toxicity). We screened the **top 3 leaderboard models on each of the 22 endpoints — 10 distinct models in total** — and tried to actually reproduce them. Most could not be reproduced — either the environment didn't build, the training set leaked into the test set, the published validation split included TDC test molecules, or the reported numbers couldn't be recovered. **Only 3 out of 10 survived all four checks**: MapLight, MapLight+GNN, and CaliciBoost (Caco-2 only).
 
-The TDC ADMET benchmark snapshot used throughout the paper (downloaded 2026-03-24 via PyTDC 0.3.8) lives at `data/admet_group/` — 22 endpoints × `{train_val.csv, test.csv}`. The same snapshot is archived on Zenodo: **DOI TBD** (replace once deposit is finalized).
+This repository contains everything needed to repeat that assessment, plus our own re-evaluation pipeline that uses standard fingerprints and gradient-boosted trees as a baseline.
 
-External published TDC leaderboard scores used as reference baselines are stored in `data/tdc_admet_leaderboard.json`.
-
-## Scope
-
-| Model | Status in this repo | Reason |
-|---|---|---|
-| In-house Mol2Vec+LightGBM (honest, overfit) | full train + inference (`scripts/`, `tdc_admet_bench/`) | manuscript Section 3 |
-| MapLight (22 endpoints) | full train + inference (`models/maplight/`) | Stage-4 survivor |
-| MapLight+GNN (22 endpoints) | full train + inference (`models/maplight_gnn/`) | Stage-4 survivor |
-| CaliciBoost (Caco-2 only) | full train + inference (`models/caliciboost/`) | Stage-4 survivor |
-| ADMETrix, CFA, SimGCN, ZairaChem, MiniMol, GradientBoost+, XGBoost | not included | eliminated at Stages 1–3; failure modes documented in the manuscript Supporting Information |
-
-## In-house pipeline
-
-Fingerprint-based ML models (LightGBM, XGBoost, CatBoost, RF, SVM) with automated feature selection over 21 fingerprint types (ECFP, FCFP, MACCS, Avalon, …) + RDKit/Mordred descriptors via [molfeat](https://molfeat.datamol.io/).
+## Quick start
 
 ```bash
+# 1. Create env
 conda env create -f environment.yml
 conda activate tdc-admet-bench
 
-# Sequential forward selection on a benchmark
+# 2. Run our pipeline on one TDC endpoint (smoke test)
+python scripts/run_evaluate.py --benchmark caco2_wang --model lgb --features ecfp,maccs
+```
+
+For full paper reproduction, see [Reproducing the paper](#reproducing-the-paper) below.
+
+## What's in this repo
+
+This is two things bundled together:
+
+1. **Our re-evaluation pipeline.** A LightGBM/XGBoost/CatBoost framework that takes a TDC benchmark, computes molecular fingerprints and descriptors (via [molfeat](https://molfeat.datamol.io/)), runs feature selection, and reports leaderboard-style scores. Used in Section 3 of the paper to produce both an "honest" baseline (trained only on the official TDC train split) and a deliberately "overfit" variant (tuned against the public test set — for illustrating how easy it is to game the leaderboard).
+2. **Wrappers around the three third-party models that passed validation.** Each wrapper vendors the upstream code at a pinned commit, ships its own conda environment, and provides one command to run the model across the relevant TDC endpoints.
+
+### Which models are in scope
+
+The paper assesses the 10 distinct models that appeared in the top 3 on at least one of the 22 TDC endpoints. Only 3 are included here as runnable code; the others were eliminated at earlier stages and their failure modes are documented in the paper.
+
+| Model | In this repo? | Why |
+|---|---|---|
+| Our LightGBM/XGBoost/CatBoost pipeline on public fingerprints (honest and overfit) | yes | Section 3 of the paper. The Mol2Vec rows from Section 3 rely on an internal Receptor.AI package that is not public and cannot be reproduced from this repo. |
+| MapLight, all 22 endpoints | yes | passed all validation stages |
+| MapLight+GNN, all 22 endpoints | yes | passed all validation stages |
+| CaliciBoost, Caco-2 only | yes | passed all validation stages |
+| ADMETrix, CFA, SimGCN, ZairaChem | no | Stage 1 — environment failed to build |
+| MiniMol | no | Stage 2 — pretraining data leaked into TDC test set |
+| GradientBoost+, XGBoost | no | Stage 3 — author's validation split included TDC test molecules |
+
+## Data
+
+We used the TDC ADMET benchmark group as it stood on **2026-03-24**, downloaded with PyTDC 0.3.8. It is checked into `data/admet_group/` (22 endpoints, each with `train_val.csv` and `test.csv`) and also archived on Zenodo: <https://doi.org/10.5281/zenodo.20180944>.
+
+The published leaderboard scores we compared against are in `data/tdc_admet_leaderboard.json`.
+
+All evaluations use the official TDC scaffold split untouched, with the standard 5-seed protocol from `tdc.benchmark_group.admet_group`.
+
+## Reproducing the paper
+
+| Paper artefact | Command |
+|---|---|
+| **Section 3 — our own models, honest and overfit variants (one run produces both)** | `python scripts/run_optuna.py --benchmark <endpoint> --model lgb --n-trials 100` |
+| **Section 4 — MapLight, all 22 endpoints** | `cd models/maplight && conda env create -f wrapper/environment.yml && conda activate maplight-tdc && PYTHONNOUSERSITE=1 python wrapper/run_all.py` |
+| **Section 4 — MapLight+GNN, all 22 endpoints** | `cd models/maplight_gnn && PYTHONNOUSERSITE=1 conda env create -f wrapper/environment.yml && conda activate maplight-gnn-tdc && PYTHONNOUSERSITE=1 python wrapper/run_all.py` |
+| **Section 4 — CaliciBoost on Caco-2** | `cd models/caliciboost && conda env create -f wrapper/environment.yml && conda activate caliciboost-tdc && PYTHONNOUSERSITE=1 python wrapper/run_caco2.py` |
+
+> **About the Section 3 run.** `run_optuna.py` takes a single benchmark name (the 22 endpoint names are listed in `tdc_admet_bench/config.py` under `BENCHMARK_CONFIG`); to sweep all 22, wrap it in a shell loop. Each run produces two reported outcomes side-by-side: the *best* trial (feature subset selected by 5×5 repeated-CV on the training set — the **honest** baseline) and the *oracle* trial (feature subset selected by held-out test score — the **overfit** variant used in the paper to demonstrate how much leaderboard rank can be inflated by selecting on test).
+
+> **Why `PYTHONNOUSERSITE=1`?** It stops Python from picking up packages installed in `~/.local/lib/python3.x/site-packages`, which otherwise leak into the conda env and break the pinned versions. Skip it if your machine has no user-site packages.
+
+Each model's own `models/<name>/README.md` lists the upstream commit and any small patches we applied (for example, switching CaliciBoost from `gpu_hist` to `hist` so it runs reproducibly on CPU).
+
+
+## Our pipeline in more detail
+
+Models available: `rf`, `lgb`, `xgb`, `cat`, `svm`, `ridge`, `hist` (random forest, LightGBM, XGBoost, CatBoost, SVM, ridge regression, sklearn HistGradientBoosting).
+
+Fingerprints (21 families, all via molfeat): `ecfp`, `fcfp`, `avalon`, `rdkit`, `topological`, `atompair`, `pattern`, `layered`, `secfp`, the `-count` variants of the first five, `maccs`, `erg`, `estate`, `desc2D`, `cats2D`, `scaffoldkeys`, `skeys`.
+
+Two feature-selection strategies are provided:
+
+- **Sequential forward selection (SFS)** — greedy add-one-at-a-time, the classic approach. Fast and interpretable.
+- **Optuna-based selection** — treats each fingerprint family as a binary include/exclude choice and uses [Optuna](https://optuna.org/)'s TPE sampler to find the best combination. Model hyperparameters are fixed; only the feature subset is searched. Each run reports two outcomes: the *best* trial (selected by 5×5 repeated-CV score on the training set — the honest variant) and the *oracle* trial (selected by held-out test score — used in the paper to illustrate how much leaderboard rank can be inflated by selecting on test).
+
+```bash
+# Sequential forward selection on one benchmark
 python scripts/run_sfs.py --benchmark caco2_wang --model lgb --k-features 10
 
 # Optuna-based feature selection
 python scripts/run_optuna.py --benchmark caco2_wang --model lgb --n-trials 100
 
-# Evaluate a fingerprint combination on all 22 benchmarks (multi-seed TDC protocol)
+# Evaluate a fixed feature combination across all 22 benchmarks
 python scripts/run_evaluate.py --benchmark all --model lgb --features ecfp,maccs,desc2D
 ```
 
-Mol2Vec embeddings come from the proprietary `rai_mol2vec` package. Without it the in-house scripts cannot run end-to-end; the SFS/HPO logic is still useful as a reference implementation, and the other fingerprint+descriptor groups work out of the box.
-
-## Third-party wrappers
-
-Each wrapper is self-contained: vendored upstream source under `upstream/`, our re-evaluation driver under `wrapper/`, pinned conda env, output CSVs under `wrapper/results/` (gitignored — regenerable).
-
-```bash
-# MapLight (22 endpoints, ~2–4 h on 16-core CPU)
-cd models/maplight
-conda env create -f wrapper/environment.yml
-conda activate maplight-tdc
-PYTHONNOUSERSITE=1 python wrapper/run_all.py
-
-# MapLight+GNN (22 endpoints, ~3–5 h)
-cd models/maplight_gnn
-PYTHONNOUSERSITE=1 conda env create -f wrapper/environment.yml
-conda activate maplight-gnn-tdc
-PYTHONNOUSERSITE=1 python wrapper/run_all.py
-
-# CaliciBoost (Caco-2 only, ~15–30 min)
-cd models/caliciboost
-conda env create -f wrapper/environment.yml
-conda activate caliciboost-tdc
-PYTHONNOUSERSITE=1 python wrapper/run_caco2.py
-```
-
-`PYTHONNOUSERSITE=1` guards against `~/.local/lib/python3.x/site-packages` shadowing the conda env; drop it if your machine has no user-site packages. Per-model `README.md` files cover provenance, the exact upstream commits, and any minor deviations (e.g. CaliciBoost's `gpu_hist` → `hist` switch for CPU reproducibility).
-
-## TDC split
-
-All re-evaluations use the official scaffold split returned by `tdc.benchmark_group.admet_group`, unmodified. 5 seeds per endpoint per the TDC multi-seed protocol.
-
-## Project structure
+## Repository layout
 
 ```
 tdc-admet-bench/
-├── environment.yml                  # top-level env for in-house pipeline
-├── tdc_admet_bench/                 # in-house pipeline library
-│   ├── config.py                    #   benchmark metadata, metrics, fingerprint defaults
+├── environment.yml                  # env for our pipeline
+├── tdc_admet_bench/                 # our pipeline as a library
+│   ├── config.py                    #   benchmark metadata, metrics, defaults
 │   ├── preprocess.py                #   SMILES standardization (datamol)
-│   ├── features.py                  #   fingerprint/descriptor transformers
-│   ├── models.py                    #   model registry (RF, XGB, LightGBM, CatBoost, SVM)
+│   ├── features.py                  #   fingerprint and descriptor transformers
+│   ├── models.py                    #   model registry
 │   ├── sfs.py                       #   sequential feature selector
 │   ├── optuna_select.py             #   Optuna-based feature selection
 │   └── evaluate.py                  #   multi-seed TDC evaluation
-├── scripts/                         # in-house CLIs
+├── scripts/                         # CLIs for the pipeline
 │   ├── run_sfs.py
 │   ├── run_optuna.py
 │   └── run_evaluate.py
-├── models/                          # third-party re-evaluation wrappers
-│   ├── maplight/
+├── models/                          # third-party wrappers
+│   ├── maplight/                    #   each has upstream/, wrapper/, README.md
 │   ├── maplight_gnn/
 │   └── caliciboost/
 └── data/
-    ├── admet_group/                 # TDC snapshot (22 endpoints, 2026-03-24)
-    └── tdc_admet_leaderboard.json   # published TDC leaderboard scores
+    ├── admet_group/                 # TDC snapshot, 2026-03-24
+    └── tdc_admet_leaderboard.json   # published leaderboard scores
 ```
 
-## Supported in-house models and fingerprints
+## Requirements
 
-`rf`, `lgb`, `xgb`, `cat`, `svm`, `ridge`, `hist`.
+- Python **3.10** (pinned in `environment.yml`)
+- CPU only — no GPU required for any model
+- See `environment.yml` for the full dependency list
 
-21 fingerprint types via molfeat: `ecfp`, `fcfp`, `avalon`, `rdkit`, `topological`, `atompair`, `pattern`, `layered`, `secfp` (+ `-count` variants for the first five), `maccs`, `erg`, `estate`, `desc2D`, `cats2D`, `scaffoldkeys`, `skeys`.
+## License
 
-## Third-party licensing
+Each `models/<name>/upstream/` directory keeps the upstream project's original license alongside a `PROVENANCE.md` pinning the source commit.
 
-Each `models/*/upstream/` directory carries the upstream model's own MIT license file and a `PROVENANCE.md` pinning the source commit. The wrapper code under `models/*/wrapper/` is original to this repository.
+## Citing
+
+If you use this code, please cite the paper:
+
+```bibtex
+@article{koleiev2026admet,
+  title   = {Critical Assessment of ML Models for ADMET Prediction in TDC Leaderboards},
+  author  = {Koleiev, Ihor and Stratiichuk, Roman and Shevchuk, Nazar and Melnychenko, Mykola and Nyporko, Alex and Todoryshyn, Daniil and Husak, Vladyslav and Starosyla, Sergii and Yesylevskyy, Semen and Nafiiev, Alan},
+  year    = {2026},
+  doi     = {10.64898/2026.02.26.708193v1},
+  url     = {https://www.biorxiv.org/content/10.64898/2026.02.26.708193v1.full}
+}
+```
+
+If you use the data archive, please also cite the Zenodo deposit:
+
+```bibtex
+@dataset{tdc_admet_bench_data_2026,
+  title     = {TDC ADMET benchmark snapshot (2026-03-24)},
+  author    = {Koleiev, Ihor and others},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.20180944},
+  url       = {https://doi.org/10.5281/zenodo.20180944}
+}
+```
+
+
+## Questions
+
+Open a GitHub issue on this repository — that's the fastest route. The repo is maintained by the Receptor.AI team.
